@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#09110f" />
+    <title>작은 지구 인류 시뮬레이터</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="world"></canvas>
+
+      <header class="topbar">
+        <div class="brand">
+          <i data-lucide="globe-2"></i>
+          <div>
+            <h1>작은 지구</h1>
+            <span id="eraLabel">정착 시대</span>
+          </div>
+        </div>
+        <div class="metric-strip" id="metricStrip"></div>
+        <div class="clock">
+          <button class="auto-button" id="autoButton" type="button" aria-label="자동 운영">
+            <i data-lucide="bot"></i>
+            자동
+          </button>
+          <button class="icon-button" id="pauseButton" type="button" aria-label="일시정지">
+            <i data-lucide="pause"></i>
+          </button>
+          <div class="segmented" id="speedButtons" aria-label="속도">
+            <button type="button" data-speed="1">1x</button>
+            <button type="button" data-speed="3" class="active">3x</button>
+            <button type="button" data-speed="8">8x</button>
+          </div>
+          <span id="dateLabel">1년 1월</span>
+        </div>
+      </header>
+
+      <aside class="panel tool-panel" aria-label="건설 도구">
+        <div class="panel-title">
+          <i data-lucide="hammer"></i>
+          <span>건설</span>
+        </div>
+        <div class="tool-grid" id="buildTools"></div>
+      </aside>
+
+      <aside class="panel inspector" aria-label="타일 정보">
+        <div class="panel-title">
+          <i data-lucide="scan-search"></i>
+          <span>선택지</span>
+        </div>
+        <div id="tileInspector" class="inspector-body"></div>
+      </aside>
+
+      <section class="panel command-panel" aria-label="정책과 연구">
+        <div class="director-card">
+          <div class="panel-title">
+            <i data-lucide="brain-circuit"></i>
+            <span>운영관</span>
+          </div>
+          <div id="directorView"></div>
+        </div>
+        <div class="goals-card">
+          <div class="panel-title">
+            <i data-lucide="target"></i>
+            <span>문명 목표</span>
+          </div>
+          <div id="goalsView"></div>
+        </div>
+        <div class="research-card">
+          <div class="panel-title">
+            <i data-lucide="flask-conical"></i>
+            <span>연구</span>
+          </div>
+          <div id="researchView"></div>
+        </div>
+        <div class="policy-card">
+          <div class="panel-title">
+            <i data-lucide="landmark"></i>
+            <span>중점</span>
+          </div>
+          <div class="policy-row" id="policyButtons"></div>
+        </div>
+      </section>
+
+      <footer class="timeline panel">
+        <div class="status" id="statusLine"></div>
+        <div class="log" id="eventLog"></div>
+      </footer>
+
+      <div class="modal hidden" id="endModal" role="dialog" aria-modal="true">
+        <div class="modal-box">
+          <i data-lucide="orbit"></i>
+          <h2 id="endTitle"></h2>
+          <p id="endText"></p>
+          <button id="restartButton" type="button">
+            <i data-lucide="rotate-ccw"></i>
+            다시 시작
+          </button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
