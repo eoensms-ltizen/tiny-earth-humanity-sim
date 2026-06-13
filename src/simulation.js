@@ -277,7 +277,80 @@ function fractalNoise(point, salt) {
   return total / norm;
 }
 
-export function generateTiles(count = 260) {
+const CONTINENT_SEEDS = [
+  { point: { x: -0.15, y: 0.26, z: 0.94 }, radius: 0.98, strength: 1.02 },
+  { point: { x: 0.68, y: 0.02, z: 0.58 }, radius: 0.78, strength: 0.92 },
+  { point: { x: -0.86, y: 0.03, z: -0.26 }, radius: 0.88, strength: 0.95 },
+  { point: { x: 0.45, y: -0.48, z: -0.74 }, radius: 0.52, strength: 0.72 },
+  { point: { x: -0.12, y: -0.88, z: 0.32 }, radius: 0.42, strength: 0.58 }
+].map((seed) => {
+  const length = Math.hypot(seed.point.x, seed.point.y, seed.point.z);
+  return {
+    ...seed,
+    point: {
+      x: seed.point.x / length,
+      y: seed.point.y / length,
+      z: seed.point.z / length
+    }
+  };
+});
+
+function continentProfile(point) {
+  let land = 0;
+  let continentId = -1;
+  let nearest = Infinity;
+
+  for (let i = 0; i < CONTINENT_SEEDS.length; i += 1) {
+    const seed = CONTINENT_SEEDS[i];
+    const dot = clamp(point.x * seed.point.x + point.y * seed.point.y + point.z * seed.point.z, -1, 1);
+    const angle = Math.acos(dot);
+    const falloff = clamp(1 - angle / seed.radius, 0, 1);
+    const shaped = Math.pow(falloff, 0.62) * seed.strength;
+    if (angle < nearest) {
+      nearest = angle;
+      continentId = i;
+    }
+    land = Math.max(land, shaped);
+  }
+
+  const shelfNoise = (fractalNoise(point, 71) - 0.5) * 0.24;
+  const edgeNoise = (fractalNoise(point, 91) - 0.5) * 0.16;
+  const mountainRidge =
+    Math.pow(Math.abs(fractalNoise(point, 123) - 0.52) * 2, 2.4) *
+    clamp(land * 1.45 - 0.18, 0, 1);
+  const elevation = clamp(0.26 + land * 0.62 + shelfNoise + edgeNoise + mountainRidge * 0.18, 0, 1);
+  return { land, elevation, continentId, ridge: mountainRidge };
+}
+
+export function sampleSurface(point) {
+  const latitude = Math.asin(point.y) / (Math.PI / 2);
+  const profile = continentProfile(point);
+  const elevation = profile.elevation;
+  const moisture = fractalNoise(point, 17);
+  const heat = clamp(1 - Math.abs(latitude) * 0.88 + (fractalNoise(point, 29) - 0.5) * 0.35, 0, 1);
+  const isOcean = elevation < 0.46;
+  const coast = elevation >= 0.4 && elevation < 0.51;
+  let biome = "plains";
+
+  if (isOcean && coast) biome = "reef";
+  else if (isOcean) biome = "ocean";
+  else if (elevation > 0.78 || profile.ridge > 0.65) biome = "mountain";
+  else if (heat < 0.22) biome = "tundra";
+  else if (moisture > 0.63) biome = "forest";
+  else if (heat > 0.68 && moisture < 0.42) biome = "desert";
+
+  return {
+    biome,
+    continent: profile.continentId,
+    elevation,
+    heat,
+    latitude,
+    moisture,
+    ridge: profile.ridge
+  };
+}
+
+export function generateTiles(count = 420) {
   const tiles = [];
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 
@@ -288,20 +361,8 @@ export function generateTiles(count = 260) {
     const x = Math.cos(theta) * radius;
     const z = Math.sin(theta) * radius;
     const point = { x, y, z };
-    const latitude = Math.asin(y) / (Math.PI / 2);
-    const elevation = fractalNoise(point, 3);
-    const moisture = fractalNoise(point, 17);
-    const heat = clamp(1 - Math.abs(latitude) * 0.88 + (fractalNoise(point, 29) - 0.5) * 0.35, 0, 1);
-    const isOcean = elevation < 0.38;
-    const coast = elevation >= 0.34 && elevation < 0.38;
-    let biome = "plains";
-
-    if (isOcean && coast) biome = "reef";
-    else if (isOcean) biome = "ocean";
-    else if (elevation > 0.78) biome = "mountain";
-    else if (heat < 0.22) biome = "tundra";
-    else if (moisture > 0.63) biome = "forest";
-    else if (heat > 0.68 && moisture < 0.42) biome = "desert";
+    const surface = sampleSurface(point);
+    const { biome, elevation, heat, latitude, moisture } = surface;
 
     const fertilityBase = biome === "forest" ? 0.85 : biome === "plains" ? 0.72 : biome === "tundra" ? 0.38 : biome === "desert" ? 0.22 : 0.08;
     const oreBase = biome === "mountain" ? 0.92 : biome === "desert" ? 0.52 : biome === "tundra" ? 0.48 : biome === "forest" ? 0.28 : 0.34;
@@ -319,6 +380,10 @@ export function generateTiles(count = 260) {
       ore: clamp(oreBase + (elevation - 0.5) * 0.35, 0.05, 1),
       wind,
       solar,
+      continent: surface.continent,
+      ridge: surface.ridge,
+      scenery: biome === "forest" ? "forest" : biome === "mountain" ? "mountain" : biome === "desert" ? "desert" : biome === "reef" ? "reef" : biome === "plains" ? "grassland" : "open",
+      wildlife: BIOMES[biome].buildable && (biome === "forest" || biome === "plains") && seededNoise(x, y, z, 57) > 0.62,
       building: null,
       connected: false,
       alert: null,
@@ -365,7 +430,7 @@ export function generateTiles(count = 260) {
   return tiles;
 }
 
-export function createSimulation(tileCount = 260) {
+export function createSimulation(tileCount = 420) {
   return {
     tiles: generateTiles(tileCount),
     resources: {
